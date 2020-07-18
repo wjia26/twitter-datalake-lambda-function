@@ -7,4 +7,6 @@ You must then change the lambda function reference to "test.py"
 
 I use "EventBridge(CloudWatch Events)" to schedule a cron job to run every 3minutes.
 
+The repository includes all dependencies which will work on the Amazon AMI build for Lambda.
+
 More information can be found on my [website](https://iamwilliamj.com/)
