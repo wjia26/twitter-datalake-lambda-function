@@ -60,7 +60,7 @@ def run_etl(fs):
     try:
         for file in fs.listdir('twitterdatalake'):
             file_key=file['Key']
-            if ".parquet" in file_key and row['file_name'] in file_key and row['category'] in file_key:
+            if ".csv" in file_key and row['file_name'] in file_key and row['category'] in file_key:
                 search_id=file_key.split('-')[1]
                 search_id_list.append(search_id)
 
@@ -108,6 +108,7 @@ def run_etl(fs):
         full_filename=file_dir+row['category'] +'/'+ row['file_name'] +'/'+  to_csv_timestamp + '-' + str(max_twitter_id)
         with fs.open(full_filename+ '.csv','w', encoding="utf-8", newline = '\n') as f:
             df = df.replace('\n',' ', regex=True)
+            df = df.replace('\r',' ', regex=True)
             df.to_csv(f, index=False)
     #     with fs.open(full_filename+ '.snappy.parquet','w', encoding="utf-8") as f:
     #         df.to_parquet(f,compression='SNAPPY')
