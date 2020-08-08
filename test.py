@@ -34,6 +34,10 @@ def polarity(row):
     return polarity['compound']
 
 def run_etl(fs):
+    #connect to boto3
+    # s3 = boto3.client('s3',region_name='ap-southeast-2')    
+
+
     with fs.open('s3://mykeysandstuff/query_list.csv', 'r') as f1:
         df_query_list=pd.read_csv(f1)
     #Read the state from the list
@@ -56,23 +60,34 @@ def run_etl(fs):
     #select the row with index of the state
     row=df_query_list.loc[index]
     print(row)
-    search_id_list=[]
-    try:
-        for file in fs.listdir('twitterdatalake'):
-            file_key=file['Key']
-            if ".csv" in file_key and row['file_name'] in file_key and row['category'] in file_key:
-                search_id=file_key.split('-')[1]
-                search_id_list.append(search_id)
 
-        if not search_id_list:
+    try:
+
+    #Tree search to the max search id 
+        search_id_max=0
+        category=row['category']
+        file_name=row['file_name']
+        for file1 in fs.listdir('twitterdatalake'):
+            folder_name1=file1['Key'].split('/')[-1]
+            if folder_name1==category:
+                for file2 in fs.listdir(file1['Key']):
+                    folder_name2=file2['Key'].split('/')[-1]
+                    if folder_name2==file_name:
+                        for file3 in fs.listdir(file2['Key']):
+                            file_key=file3['Key']
+                            if ".csv" in file_key:
+                                # print(file_key)
+                                search_id=int(file_key.split('-')[1].split('.csv')[0])
+                                if search_id>search_id_max:
+                                    search_id_max=search_id 
+        if search_id_max==0:
             last_since_id=None
         else:
-            last_since_id=max(search_id_list)
+            last_since_id=search_id_max
         
         print(last_since_id)
-
-        #Get Search Results
-        search_results=tweepy.Cursor(api.search,q=row['search'], lang="en",since_id=last_since_id, tweet_mode='extended').items(1000) #since_id neeeded here at some point
+        #Get Search Results without retweets
+        search_results=tweepy.Cursor(api.search,q=row['search']+' -filter:retweets', lang="en",since_id=last_since_id, tweet_mode='extended').items(1000) #since_id neeeded here at some point
         rows_list=[]
         for tweet in search_results:
             dict1 = {}
@@ -116,7 +131,7 @@ def run_etl(fs):
 
 
 
-        return row['file_name'],len(df)
+        return row['file_name'],len(df),last_since_id,append_str
 
     
     except Exception as e:
@@ -128,11 +143,13 @@ def lambda_handler(event, context):
     fs = s3fs.S3FileSystem(anon=False)
 
     #Run ETL job
-    file_name,numberOfRows=run_etl(fs)
+    file_name,numberOfRows,last_since_id,append_str=run_etl(fs)
 
     
     return {
         'statusCode': 200,
         'file_name': file_name,
-        'number_of_rows': numberOfRows
+        'number_of_rows': numberOfRows,
+        'last_since_id': last_since_id,
+        'append_str': append_str
     }
